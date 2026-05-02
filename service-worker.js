@@ -1,4 +1,4 @@
-const CACHE_NAME = "copper-spoon-v5";
+const CACHE_NAME = "copper-spoon-v6";
 const ASSETS = [
   "/",
   "/index.html",
