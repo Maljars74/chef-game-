@@ -40,13 +40,14 @@ function parseDurationToMinutes(duration) {
   return (hours * 60) + minutes;
 }
 
-function normalizeRecipeFromJsonLd(node, query) {
+function normalizeRecipeFromJsonLd(node, query, options = {}) {
   const name = String(node.name || "").trim();
   if (!name) return null;
 
+  const fallbackUrl = options.fallbackUrl || `https://www.taste.com.au/recipes?q=${encodeURIComponent(query)}`;
   const sourceUrl = typeof node.url === "string" && node.url.trim()
     ? node.url.trim()
-    : `https://www.taste.com.au/recipes?q=${encodeURIComponent(query)}`;
+    : fallbackUrl;
 
   const ingredients = Array.isArray(node.recipeIngredient)
     ? node.recipeIngredient.map(item => String(item).trim()).filter(Boolean)
@@ -80,7 +81,7 @@ function normalizeRecipeFromJsonLd(node, query) {
     time,
     difficulty,
     servings: "2-4 servings",
-    tags: ["web", "taste", "australian"],
+    tags: Array.isArray(options.tags) && options.tags.length ? options.tags : ["web", "taste", "australian"],
     ingredients,
     steps
   };
@@ -106,7 +107,7 @@ function collectRecipeNodes(node, out) {
   }
 }
 
-function extractRecipesFromJsonLd(html, query) {
+function extractRecipesFromJsonLd(html, query, options = {}) {
   const recipes = [];
   const seen = new Set();
   const scripts = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || [];
@@ -122,7 +123,7 @@ function extractRecipesFromJsonLd(html, query) {
       collectRecipeNodes(parsed, recipeNodes);
 
       recipeNodes.forEach(node => {
-        const recipe = normalizeRecipeFromJsonLd(node, query);
+        const recipe = normalizeRecipeFromJsonLd(node, query, options);
         if (!recipe || !recipe.sourceUrl || seen.has(recipe.sourceUrl)) return;
         seen.add(recipe.sourceUrl);
         recipes.push(recipe);
@@ -131,6 +132,47 @@ function extractRecipesFromJsonLd(html, query) {
       // Ignore malformed JSON blocks.
     }
   });
+
+  return recipes;
+}
+
+function titleFromUrl(url) {
+  const cleaned = String(url || "").split("?")[0].replace(/\/+$/, "");
+  const slug = cleaned.split("/").filter(Boolean).pop() || "recipe";
+  return decodeURIComponent(slug)
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function extractRecipesFromUrlMatches(html, config) {
+  const recipes = [];
+  const seen = new Set();
+  const matches = html.match(config.pattern) || [];
+
+  for (const match of matches) {
+    const rawUrl = String(match || "").trim();
+    const absoluteUrl = rawUrl.startsWith("http")
+      ? rawUrl
+      : `${config.baseUrl}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
+
+    if (seen.has(absoluteUrl)) continue;
+    if (config.exclude && config.exclude.test(absoluteUrl)) continue;
+    if (config.include && !config.include.test(absoluteUrl)) continue;
+
+    seen.add(absoluteUrl);
+    recipes.push({
+      name: titleFromUrl(absoluteUrl),
+      sourceUrl: absoluteUrl,
+      time: config.time || "15-35 min",
+      difficulty: config.difficulty || "Easy",
+      servings: config.servings || "2-4 servings",
+      tags: config.tags || ["web"],
+      ingredients: [],
+      steps: []
+    });
+
+    if (recipes.length >= (config.limit || 12)) break;
+  }
 
   return recipes;
 }
@@ -195,7 +237,10 @@ async function searchTasteRecipes(query) {
   }
 
   const html = await response.text();
-  const jsonLdRecipes = extractRecipesFromJsonLd(html, query);
+  const jsonLdRecipes = extractRecipesFromJsonLd(html, query, {
+    fallbackUrl: url,
+    tags: ["web", "taste", "australian"]
+  });
   if (jsonLdRecipes.length) return jsonLdRecipes;
 
   return extractRecipesFromLinks(html, query);
@@ -215,10 +260,19 @@ async function searchMouthsOfMumsRecipes(query) {
   }
 
   const html = await response.text();
-  const jsonLdRecipes = extractRecipesFromJsonLd(html, query);
+  const jsonLdRecipes = extractRecipesFromJsonLd(html, query, {
+    fallbackUrl: url,
+    tags: ["web", "mouthsofmums", "australian"]
+  });
   if (jsonLdRecipes.length) return jsonLdRecipes;
 
-  return extractRecipesFromLinks(html, query);
+  return extractRecipesFromUrlMatches(html, {
+    pattern: /https:\/\/mouthsofmums\.com\.au\/recipe\/[a-z0-9-]+\/?/gi,
+    baseUrl: "https://mouthsofmums.com.au",
+    include: /mouthsofmums\.com\.au\/recipe\//i,
+    tags: ["web", "mouthsofmums", "australian"],
+    limit: 12
+  });
 }
 
 async function searchBBCGoodFoodRecipes(query) {
@@ -235,10 +289,20 @@ async function searchBBCGoodFoodRecipes(query) {
   }
 
   const html = await response.text();
-  const jsonLdRecipes = extractRecipesFromJsonLd(html, query);
+  const jsonLdRecipes = extractRecipesFromJsonLd(html, query, {
+    fallbackUrl: url,
+    tags: ["web", "bbcgoodfood", "british"]
+  });
   if (jsonLdRecipes.length) return jsonLdRecipes;
 
-  return extractRecipesFromLinks(html, query);
+  return extractRecipesFromUrlMatches(html, {
+    pattern: /https:\/\/www\.bbcgoodfood\.com\/recipes\/[a-z0-9-]+\/?/gi,
+    baseUrl: "https://www.bbcgoodfood.com",
+    include: /bbcgoodfood\.com\/recipes\//i,
+    exclude: /\/recipes\/collection\//i,
+    tags: ["web", "bbcgoodfood", "british"],
+    limit: 12
+  });
 }
 
 function serveStatic(req, res, parsedUrl) {
