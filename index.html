@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Find recipes, follow guided cooking steps, and save favorites with Copper Spoon Kitchen." />
+  <meta name="theme-color" content="#c0392b" />
+  <title>Copper Spoon Kitchen</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header>
+    <h1>🍳 Copper Spoon Kitchen</h1>
+    <p class="tagline">Search recipes, cook step-by-step, and save your favorites.</p>
+    <nav class="top-nav" aria-label="Main navigation">
+      <a href="#search-screen">Search</a>
+      <a href="#cooking-screen">Cook</a>
+      <a href="privacy.html">Privacy</a>
+      <button id="install-btn" class="install-btn" hidden>Install App</button>
+    </nav>
+  </header>
+
+  <!-- ===== SEARCH SCREEN ===== -->
+  <section id="search-screen" class="screen active">
+    <div class="chef-container" id="chef-idle">
+      <div class="chef" id="chef-main">
+        <div class="chef-hat"></div>
+        <div class="chef-face">
+          <div class="eyebrows">
+            <div class="eyebrow left"></div>
+            <div class="eyebrow right"></div>
+          </div>
+          <div class="eyes">
+            <div class="eye left"><div class="pupil"></div></div>
+            <div class="eye right"><div class="pupil"></div></div>
+          </div>
+          <div class="nose"></div>
+          <div class="mustache"></div>
+          <div class="mouth" id="chef-mouth"></div>
+        </div>
+        <div class="chef-body">
+          <div class="chef-collar"></div>
+          <div class="chef-apron"></div>
+          <div class="chef-arm left" id="arm-left">
+            <div class="chef-hand left" id="hand-left">🥄</div>
+          </div>
+          <div class="chef-arm right" id="arm-right">
+            <div class="chef-hand right" id="hand-right">🍳</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="speech-bubble" id="speech-bubble">
+      <p id="speech-text">Welcome to Copper Spoon Kitchen. What would you like to cook today?</p>
+    </div>
+
+    <div class="search-box">
+      <input
+        type="text"
+        id="search-input"
+        placeholder="Search for a recipe... (e.g. pasta, chicken, soup)"
+        autocomplete="off"
+      />
+      <button id="search-btn" onclick="searchRecipes()">🔍 Search</button>
+    </div>
+
+    <div class="search-tools">
+      <button id="scope-both-btn" class="toggle-pill active" onclick="setSearchScope('both')">🌐 Both</button>
+      <button id="scope-local-btn" class="toggle-pill" onclick="setSearchScope('local')">🏠 Local</button>
+      <button id="scope-web-btn" class="toggle-pill" onclick="setSearchScope('web')">🕸️ Web</button>
+      <button id="show-all-btn" class="toggle-pill active" onclick="setRecipeFilter(false)">All Recipes</button>
+      <button id="show-favorites-btn" class="toggle-pill" onclick="setRecipeFilter(true)">⭐ Favorites Only</button>
+    </div>
+
+    <div id="search-status" class="search-status" aria-live="polite"></div>
+
+    <section class="favorites-section" aria-label="Favorite recipes">
+      <h3>⭐ Saved Favorites</h3>
+      <div id="favorites-list" class="results-grid compact-grid"></div>
+    </section>
+
+    <div id="search-results" class="results-grid"></div>
+  </section>
+
+  <!-- ===== COOKING SCREEN ===== -->
+  <section id="cooking-screen" class="screen">
+    <button class="back-btn" onclick="goBack()">← Back to Search</button>
+
+    <div class="cooking-layout">
+      <!-- Left: Chef cooking animation -->
+      <div class="cooking-chef-panel">
+        <div class="chef cooking-mode" id="chef-cooking">
+          <div class="chef-hat"></div>
+          <div class="chef-face">
+            <div class="eyebrows">
+              <div class="eyebrow left excited"></div>
+              <div class="eyebrow right excited"></div>
+            </div>
+            <div class="eyes">
+              <div class="eye left"><div class="pupil"></div></div>
+              <div class="eye right"><div class="pupil"></div></div>
+            </div>
+            <div class="nose"></div>
+            <div class="mustache"></div>
+            <div class="mouth cooking-mouth"></div>
+          </div>
+          <div class="chef-body">
+            <div class="chef-collar"></div>
+            <div class="chef-apron"></div>
+            <div class="chef-arm left cooking-arm-left">
+              <div class="chef-hand left" id="cooking-hand-left">🥄</div>
+            </div>
+            <div class="chef-arm right cooking-arm-right">
+              <div class="chef-hand right" id="cooking-hand-right">🍳</div>
+            </div>
+          </div>
+        </div>
+        <div class="speech-bubble cooking-speech" id="cooking-speech">
+          <p id="cooking-speech-text">Let’s get cooking.</p>
+        </div>
+      </div>
+
+      <!-- Right: Recipe steps -->
+      <div class="recipe-panel">
+        <div class="recipe-header">
+          <span id="recipe-emoji" class="recipe-big-emoji">🍽️</span>
+          <h2 id="recipe-title">Recipe Title</h2>
+          <button id="recipe-source-btn" class="recipe-source-btn" onclick="openRecipeSource()" hidden>🔗 Open Original Recipe</button>
+          <button id="recipe-favorite-btn" class="recipe-favorite-btn" onclick="toggleCurrentRecipeFavorite()">☆ Save Favorite</button>
+          <div class="recipe-meta">
+            <span id="recipe-time">⏱️ 30 min</span>
+            <span id="recipe-difficulty">👨‍🍳 Medium</span>
+            <span id="recipe-servings">🍽️ 4 servings</span>
+            <span id="recipe-source-label">📚 Source: Local Recipe Library</span>
+          </div>
+        </div>
+
+        <div class="ingredients-section">
+          <h3>📦 Ingredients</h3>
+          <ul id="ingredients-list"></ul>
+        </div>
+
+        <div class="steps-section">
+          <h3>👨‍🍳 Cooking Steps</h3>
+          <div id="steps-container"></div>
+          <div class="step-nav">
+            <button id="prev-step-btn" onclick="prevStep()" disabled>← Previous</button>
+            <span id="step-counter">Step 1 / 6</span>
+            <button id="next-step-btn" onclick="nextStep()">Next → </button>
+          </div>
+          <div class="step-audio-controls">
+            <button id="narration-btn" onclick="toggleNarration()">🔊 Start Narration</button>
+            <button id="replay-step-btn" onclick="replayNarration()">🗣️ Replay Step</button>
+            <button id="sound-toggle-btn" onclick="toggleSound()">🔔 Sound On</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="recipes.js"></script>
+  <script src="app.js"></script>
+
+  <footer class="app-footer" id="legal">
+    <p>© <span id="current-year">2026</span> Copper Spoon Kitchen</p>
+    <div class="footer-links">
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="mailto:hello@copperspoonkitchen.app">Contact</a>
+    </div>
+  </footer>
+
+  <div id="update-toast" class="update-toast" hidden>
+    <span>✨ A new version of Copper Spoon Kitchen is ready.</span>
+    <button id="update-reload-btn">Reload</button>
+    <button id="update-dismiss-btn" aria-label="Dismiss">✕</button>
+  </div>
+
+  <aside id="consent-banner" class="consent-banner" role="dialog" aria-live="polite" aria-label="Cookie and local storage preferences" hidden>
+    <p>We use local storage to save favorites, sound settings, and app preferences. Do you want to allow this?</p>
+    <div class="consent-actions">
+      <button id="consent-accept-btn">Allow</button>
+      <button id="consent-decline-btn">Decline</button>
+    </div>
+  </aside>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "copper-spoon-kitchen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Copper Spoon Kitchen web app with recipe search",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
