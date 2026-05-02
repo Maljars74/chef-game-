@@ -1090,6 +1090,7 @@ async function fetchWebRecipes(query) {
       fetchMealDbByCandidate(candidate),
       fetchDummyByCandidate(candidate),
       fetch60SecondByCandidate(candidate),
+      fetchTasteByCandidate(candidate),
       fetchMouthsOfMumsByCandidate(candidate),
       fetchBBCGoodFoodByCandidate(candidate)
     ]);
