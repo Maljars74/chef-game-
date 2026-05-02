@@ -958,8 +958,7 @@ async function fetchWebRecipes(query) {
     const settled = await Promise.allSettled([
       fetchMealDbByCandidate(candidate),
       fetchDummyByCandidate(candidate),
-      fetch60SecondByCandidate(candidate),
-      fetchTasteByCandidate(candidate)
+      fetch60SecondByCandidate(candidate)
     ]);
 
     settled.forEach(result => {
