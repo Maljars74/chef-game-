@@ -201,6 +201,26 @@ async function searchTasteRecipes(query) {
   return extractRecipesFromLinks(html, query);
 }
 
+async function searchMouthsOfMumsRecipes(query) {
+  const url = `https://mouthsofmums.com.au/recipes/?s=${encodeURIComponent(query)}`;
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Mouths of Mums search failed with status ${response.status}`);
+  }
+
+  const html = await response.text();
+  const jsonLdRecipes = extractRecipesFromJsonLd(html, query);
+  if (jsonLdRecipes.length) return jsonLdRecipes;
+
+  return extractRecipesFromLinks(html, query);
+}
+
 function serveStatic(req, res, parsedUrl) {
   const requestPath = decodeURIComponent(parsedUrl.pathname || "/");
   const safePath = path.normalize(requestPath).replace(/^\.\.(\/|\\|$)/, "");
@@ -255,6 +275,26 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, {
           recipes: [],
           error: "Taste provider unavailable",
+          detail: String(error && error.message ? error.message : error)
+        });
+      }
+      return;
+    }
+
+    if (req.method === "GET" && parsedUrl.pathname === "/api/mouthsofmums/search") {
+      const q = String(parsedUrl.searchParams.get("q") || "").trim();
+      if (!q) {
+        sendJson(res, 200, { recipes: [] });
+        return;
+      }
+
+      try {
+        const recipes = await searchMouthsOfMumsRecipes(q);
+        sendJson(res, 200, { recipes: recipes.slice(0, 12) });
+      } catch (error) {
+        sendJson(res, 200, {
+          recipes: [],
+          error: "Mouths of Mums provider unavailable",
           detail: String(error && error.message ? error.message : error)
         });
       }
