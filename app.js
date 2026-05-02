@@ -673,6 +673,60 @@ function parseDummyJsonRecipe(item) {
   return recipe;
 }
 
+function parseBBCGoodFoodProxyRecipe(item, fallbackCandidate = "") {
+  const name = String(item?.name || item?.title || fallbackCandidate || "BBC Good Food Recipe").trim();
+  const sourceUrl = String(item?.sourceUrl || item?.url || "").trim();
+  const idSuffix = sourceUrl
+    ? encodeURIComponent(sourceUrl).replace(/%/g, "")
+    : `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${fallbackCandidate}`;
+
+  const ingredients = Array.isArray(item?.ingredients) && item.ingredients.length
+    ? item.ingredients.map(ingredient => `• ${String(ingredient).trim()}`)
+    : ["• Open source page for full ingredients list"];
+
+  const rawSteps = Array.isArray(item?.steps) ? item.steps : [];
+  const steps = rawSteps.length
+    ? rawSteps.slice(0, 8).map((instruction, idx) => ({
+      instruction: /[.!?]$/.test(instruction) ? instruction : `${instruction}.`,
+      tip: idx % 2 === 0 ? "Keep prep organized for quick cooking." : "Taste and adjust as you go."
+    }))
+    : splitInstructionsToSteps("Open the source link for full method.");
+
+  const time = typeof item?.time === "string" && item.time.trim()
+    ? item.time.trim()
+    : estimateWebMeta(steps, ingredients.length).time;
+
+  const difficulty = typeof item?.difficulty === "string" && item.difficulty.trim()
+    ? item.difficulty.trim()
+    : estimateWebMeta(steps, ingredients.length).difficulty;
+
+  const servings = typeof item?.servings === "string" && item.servings.trim()
+    ? item.servings.trim()
+    : "2-4 servings";
+
+  const tags = Array.isArray(item?.tags) && item.tags.length
+    ? item.tags.map(tag => String(tag).toLowerCase())
+    : ["web", "bbcgoodfood", "british"];
+
+  const recipe = {
+    id: `web-bbcgoodfood-${idSuffix}`,
+    name,
+    emoji: inferRecipeEmoji({ strCategory: "", strMeal: name }),
+    time,
+    difficulty,
+    servings,
+    tags: Array.from(new Set(tags)),
+    ingredients,
+    steps,
+    source: "web",
+    sourceLabel: "BBC Good Food",
+    sourceUrl
+  };
+
+  webRecipeCache.set(recipe.id, recipe);
+  return recipe;
+}
+
 function parseMouthsOfMumsProxyRecipe(item, fallbackCandidate = "") {
   const name = String(item?.name || item?.title || fallbackCandidate || "Mouths of Mums Recipe").trim();
   const sourceUrl = String(item?.sourceUrl || item?.url || "").trim();
@@ -992,6 +1046,18 @@ async function fetchWebRecipes(query) {
     }
   };
 
+  const fetchBBCGoodFoodByCandidate = async (candidate) => {
+    try {
+      const response = await fetch(`${BBCGOODFOOD_PROXY_SEARCH_URL}${encodeURIComponent(candidate)}`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      const items = Array.isArray(data?.recipes) ? data.recipes : [];
+      return items.map(item => parseBBCGoodFoodProxyRecipe(item, candidate));
+    } catch {
+      return [];
+    }
+  };
+
   const fetchMouthsOfMumsByCandidate = async (candidate) => {
     try {
       const response = await fetch(`${MOUTHSOFMUMS_PROXY_SEARCH_URL}${encodeURIComponent(candidate)}`);
@@ -1024,7 +1090,8 @@ async function fetchWebRecipes(query) {
       fetchMealDbByCandidate(candidate),
       fetchDummyByCandidate(candidate),
       fetch60SecondByCandidate(candidate),
-      fetchMouthsOfMumsByCandidate(candidate)
+      fetchMouthsOfMumsByCandidate(candidate),
+      fetchBBCGoodFoodByCandidate(candidate)
     ]);
 
     settled.forEach(result => {
